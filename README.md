@@ -1,5 +1,7 @@
 # @molecuel/graphql [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Coverage percentage][coveralls-image]][coveralls-url]
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/molecuel/graphql.svg)](https://greenkeeper.io/)
+
 graphql module for the Molecuel framework
 
 [npm-image]: https://badge.fury.io/js/%40molecuel%2Fgraphql.svg
