@@ -18,6 +18,10 @@ import { Robot } from "./data";
 describe("graphql", () => {
   let coreInitSuccess: boolean = false;
   describe("schemas", () => {
+    const mockResolvers = {
+      Query: () => "Not done yet!",
+      Robot: () => "A Robot",
+    };
     const mlclGql: MlclGraphQL = di.getInstance("MlclGraphQL");
     it("init core", async () => {
       di.bootstrap(

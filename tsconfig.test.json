@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.npm.json",
+  "compilerOptions": {
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": [
+      "test/**/*"
+  ]
+}
