@@ -1,0 +1,5 @@
+docs
+lib/**/*.ts
+test
+tasks
+gulpfile.js
