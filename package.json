@@ -29,6 +29,7 @@
     "graphql"
   ],
   "devDependencies": {
+    "@molecuel/mongodb": "^2.0.1-alpha11",
     "@types/mocha": "^2.2.36",
     "@types/should": "^8.1.30",
     "@types/when": "^2.4.28",
@@ -51,6 +52,8 @@
   "dependencies": {
     "@molecuel/core": "^2.0.6",
     "@molecuel/di": "^0.2.0",
+    "@molecuel/elements": "^2.0.0-beta3",
+    "@molecuel/http": "^2.0.0-alpha2",
     "@reactivex/rxjs": "^5.2.0",
     "config": "^1.24.0",
     "graphql": "^0.12.3",
