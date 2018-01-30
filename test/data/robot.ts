@@ -12,6 +12,6 @@ export class Robot extends Element {
   public arms: number;
   @ValidateType()
   public legs: number;
-  @ValidateType(Alloy)
+  @ValidateType("Alloy")
   public material: Alloy;
 }
