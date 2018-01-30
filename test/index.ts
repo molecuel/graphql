@@ -1,5 +1,9 @@
 "use strict";
 process.env.configpath = "./test/config/";
+import { graphiqlExpress, graphqlExpress } from "apollo-server-express";
+import * as bodyParser from "body-parser";
+import * as express from "express";
+import * as graphqlHTTP from "express-graphql";
 import * as fs from "fs";
 import "reflect-metadata";
 import * as supertest from "supertest";
@@ -75,8 +79,7 @@ describe("graphql", () => {
       const schema = mlclGql.schema;
       should.exist(schema);
     });
-    it("should retrieve data", async () => {
-      // save test data
+    it("should save some mock data to the database(s)", async () => {
       const testAlloy = elems.getInstance("Alloy");
       testAlloy.id = testAlloy.name = "Steel";
       testAlloy.mixture = ["Iron", "Carbon"];
@@ -91,8 +94,29 @@ describe("graphql", () => {
       } catch (error) {
         console.log(error);
       }
-      // retrieve testdata
-      // todo
+    });
+    it("should retrieve data", (done) => {
+      const app = express();
+      app.use(bodyParser.json())
+        .use(bodyParser.urlencoded({ extended: true }))
+        .use("/graphql", graphqlHTTP((req) => ({
+          graphiql: false,
+          pretty: true,
+          schema: mlclGql.schema,
+        })));
+      supertest(app.listen(3000, (err) => {
+        if (err) { return err; }
+      }))
+        .post("/graphql")
+        // .get("/graphql"
+        //   + "query: { Robot(id: pr0707yp3){ model, arms, legs, material } }",
+        // )
+        .send({ query: "{ Robot(id: pr0707yp3){ model, arms, legs, material } }" })
+        .set("Accept", "application/json")
+        .end((err: any, res: supertest.Response) => {
+          console.log({ err, body: res.body, text: res.text });
+          done();
+        });
     });
     after(async () => {
       const dbHandler = elems.dbHandler;
