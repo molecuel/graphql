@@ -18,6 +18,12 @@
       "node_modules",
       "**/*.spec.ts"
   ],
+  "lib": [
+    "es6",
+    "dom",
+    "esnext",
+    "esnext.asynciterable"
+  ],
   "atom": {
     "rewriteTsconfig": false,
     "formatOnSave": true

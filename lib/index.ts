@@ -1,10 +1,10 @@
 "use strict";
 import "reflect-metadata";
 
-import {MlclCore} from "@molecuel/core";
-import {di, injectable, singleton} from "@molecuel/di";
+import { init, MlclCore } from "@molecuel/core";
+import { di, injectable, singleton } from "@molecuel/di";
 import { MlclElements } from "@molecuel/elements";
-import {Observable, Subject} from "@reactivex/rxjs";
+import { Observable, Subject } from "@reactivex/rxjs";
 import {
   GraphQLBoolean,
   GraphQLFloat,
@@ -16,11 +16,15 @@ import {
   GraphQLString,
   printSchema,
 } from "graphql";
+import { makeExecutableSchema } from "graphql-tools";
 
-@injectable
+@singleton
 export class MlclGraphQL {
-  private elems: MlclElements = di.getInstance("MlclElements");
-  private gqlStore: any = new Map();
+  protected elems: MlclElements = di.getInstance("MlclElements");
+  protected gqlStore: Map<string, any> = new Map();
+  private ownSchema: any = undefined;
+  public get schema(): any { return this.ownSchema; }
+  public set schema(newSchema: any) { if (!this.ownSchema) { this.ownSchema = newSchema; } }
 
   constructor() {
     di.bootstrap(MlclCore, MlclElements);
@@ -31,7 +35,7 @@ export class MlclGraphQL {
    *
    * @memberOf MlclGraphQL
    */
-  public renderGraphQL() {
+  public renderGraphQL(): string {
     const elemProperties = this.elems.getMetadataTypesForElements();
     const keys = Object.keys(elemProperties);
     for (const key of keys) {
@@ -72,7 +76,7 @@ export class MlclGraphQL {
       fields: {},
       name,
     };
-    for ( const prop of definitions[name]) {
+    for (const prop of definitions[name]) {
       let gqlType;
       if (prop.type === "Number") {
         gqlObjDef.fields[prop.property] = {};
@@ -97,5 +101,35 @@ export class MlclGraphQL {
       gqlObjDef.fields[prop.property].type = gqlType;
     }
     return new GraphQLObjectType(gqlObjDef);
+  }
+
+  /**
+   * Returns generic resolvers for all registered Elements
+   *
+   * @memberOf MlclGraphQL
+   */
+  public renderGenericResolvers(): any {
+    const res: any = {
+      Query: {},
+    };
+    for (const className of this.elems.getClasses()) {
+      res.Query[className] = async (root, { id }) => {
+        return (await this.elems.findById(id, this.elems.getInstance(className).collection));
+      };
+    }
+    return res;
+  }
+
+  @init(55)
+  protected initSchemas() {
+    return Observable.create((o) => {
+      const self = di.getInstance("MlclGraphQL");
+      const types: string = self.renderGraphQL();
+      const resolvers: any = self.renderGenericResolvers();
+      const schema = makeExecutableSchema({ typeDefs: types, resolvers });
+      self.schema = schema;
+      o.next(o);
+      o.complete();
+    });
   }
 }
