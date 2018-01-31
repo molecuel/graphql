@@ -23,8 +23,14 @@ export class MlclGraphQL {
   protected elems: MlclElements = di.getInstance("MlclElements");
   protected gqlStore: Map<string, any> = new Map();
   private ownSchema: any = undefined;
+  private ownTypeDef: string = undefined;
+  private ownResolvers: any = undefined;
   public get schema(): any { return this.ownSchema; }
   public set schema(newSchema: any) { if (!this.ownSchema) { this.ownSchema = newSchema; } }
+  public get typedefs(): any { return this.ownTypeDef; }
+  public set typedefs(newTypeDef: any) { this.ownTypeDef = newTypeDef; }
+  public get resolvers(): any { return this.ownTypeDef; }
+  public set resolvers(newResolvers: any) { this.ownResolvers = newResolvers; }
 
   constructor() {
     di.bootstrap(MlclCore, MlclElements);
@@ -51,6 +57,9 @@ export class MlclGraphQL {
     for (const [key, gqlElement] of this.gqlStore) {
       queryType.fields[key] = {
         type: gqlElement,
+      };
+      queryType.fields["every" + key] = {
+        type: new GraphQLList(gqlElement),
       };
     }
 
@@ -116,18 +125,46 @@ export class MlclGraphQL {
       res.Query[className] = async (root, { id }) => {
         return (await this.elems.findById(id, this.elems.getInstance(className).collection));
       };
+      res.Query["every" + className] = async () => {
+        const elems = await this.elems.find({}, this.elems.getInstance(className).collection);
+        return elems;
+      };
     }
     return res;
   }
 
+  public addResolver(name: string, resolverFunction: (...args: any[]) => any) {
+    if (this.resolvers && this.resolvers.Query) {
+      this.resolvers.Query[name] = resolverFunction;
+    }
+  }
+
+  public setResolvers(resolvers: any) {
+    if (this.resolvers && this.resolvers.Query) {
+      this.resolvers.Query = resolvers;
+    }
+  }
+
+  public init(): any {
+    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers} );
+    this.ownSchema = schema;
+    return schema;
+  }
+
   @init(55)
-  protected initSchemas() {
+  protected autoInit() {
     return Observable.create((o) => {
       const self = di.getInstance("MlclGraphQL");
       const types: string = self.renderGraphQL();
       const resolvers: any = self.renderGenericResolvers();
-      const schema = makeExecutableSchema({ typeDefs: types, resolvers });
-      self.schema = schema;
+      try {
+        self.typedefs = types;
+        self.resolvers = resolvers;
+        const schema = makeExecutableSchema({ typeDefs: types, resolvers });
+        self.schema = schema;
+      } catch (error) {
+        // todo: react to error
+      }
       o.next(o);
       o.complete();
     });

@@ -64,11 +64,11 @@ describe("graphql", () => {
       await core.init();
       should.exist(core);
       core.should.be.instanceOf(MlclCore);
-      // const config = di.getInstance("MlclConfig").getConfig();
       coreInitSuccess = true;
     });
     it("should get the type definition for all registered elements", () => {
       const typedefs = mlclGql.renderGraphQL();
+      // console.log(typedefs);
       expect(typedefs).to.be.a("string");
     });
     it("should generate generic resolvers", () => {
@@ -89,10 +89,12 @@ describe("graphql", () => {
       testBot.material = testAlloy;
       try {
         const success = await elems.init();
+        expect(success).to.equal(true);
         await testAlloy.save();
         await testBot.save();
       } catch (error) {
         console.log(error);
+        should.not.exist(error);
       }
     });
     it("should retrieve data", (done) => {
@@ -104,9 +106,9 @@ describe("graphql", () => {
           pretty: true,
           schema: mlclGql.schema,
         })));
-      supertest(app.listen(3000, (err) => {
+      supertest(app.listen(/*3000, (err) => {
         if (err) { return err; }
-      }))
+      }*/))
         .post("/graphql")
         // .get("/graphql"
         //   + "query: { Robot(id: pr0707yp3){ model, arms, legs, material } }",
@@ -114,7 +116,30 @@ describe("graphql", () => {
         .send({ query: "{ Robot(id: pr0707yp3){ model, arms, legs, material } }" })
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
-          console.log({ err, body: res.body, text: res.text });
+          console.log({ err: err || res.body.errors, body: res.body, text: res.text });
+          done();
+        });
+    });
+    it("should retrieve data", (done) => {
+      const app = express();
+      app.use(bodyParser.json())
+        .use(bodyParser.urlencoded({ extended: true }))
+        .use("/graphql", graphqlHTTP((req) => ({
+          graphiql: false,
+          pretty: true,
+          schema: mlclGql.schema,
+        })));
+      supertest(app.listen(/*3000, (err) => {
+        if (err) { return err; }
+      }*/))
+        .post("/graphql")
+        // .get("/graphql"
+        //   + "query: { Robot { model, arms, legs, material } }",
+        // )
+        .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
+        .set("Accept", "application/json")
+        .end((err: any, res: supertest.Response) => {
+          console.log(err || res.body.errors ? err || res.body.errors : res.body.data);
           done();
         });
     });
