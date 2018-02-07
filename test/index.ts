@@ -84,7 +84,7 @@ describe("graphql", () => {
       testAlloy.id = testAlloy.name = "Steel";
       testAlloy.mixture = ["Iron", "Carbon"];
       const testBot = elems.getInstance("Robot");
-      testBot.id = testBot.model = "pr070typ3";
+      testBot.id = testBot.model = "pr0707typ3";
       testBot.arms = testBot.legs = 2;
       testBot.material = testAlloy;
       try {
@@ -113,7 +113,7 @@ describe("graphql", () => {
         // .get("/graphql"
         //   + "query: { Robot(id: pr0707yp3){ model, arms, legs, material } }",
         // )
-        .send({ query: "{ Robot(id: pr0707yp3){ model, arms, legs, material } }" })
+        .send({ query: '{ Robot(id: "pr0707typ3"){ model, arms, legs, material { name, mixture } } }' })
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
           console.log({ err: err || res.body.errors, body: res.body, text: res.text });

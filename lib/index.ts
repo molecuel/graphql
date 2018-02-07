@@ -56,13 +56,18 @@ export class MlclGraphQL {
 
     for (const [key, gqlElement] of this.gqlStore) {
       queryType.fields[key] = {
+        args: {
+          id: {
+            type: GraphQLID,
+          },
+        },
         type: gqlElement,
       };
       queryType.fields["every" + key] = {
         type: new GraphQLList(gqlElement),
       };
     }
-
+    // console.log(queryType);
     const queryGqlType = new GraphQLObjectType(queryType);
 
     const schema = new GraphQLSchema({
@@ -85,6 +90,7 @@ export class MlclGraphQL {
       fields: {},
       name,
     };
+    // try {
     for (const prop of definitions[name]) {
       let gqlType;
       if (prop.type === "Number") {
@@ -96,6 +102,9 @@ export class MlclGraphQL {
       } else if (prop.type === "Boolean") {
         gqlObjDef.fields[prop.property] = {};
         gqlType = GraphQLBoolean;
+      } else if (prop.type === "ID") {
+        gqlObjDef.fields[prop.property] = {};
+        gqlType = GraphQLID;
       } else {
         gqlObjDef.fields[prop.property] = {};
         if (this.gqlStore.get(prop.type)) {
@@ -109,6 +118,14 @@ export class MlclGraphQL {
       }
       gqlObjDef.fields[prop.property].type = gqlType;
     }
+    // } catch (error) {
+    //   console.log({error, definitions, name});
+    // }
+    // for (const prop in gqlObjDef) {
+    //   if (gqlObjDef[prop]) {
+    //     console.log(prop, gqlObjDef[prop]);
+    //   }
+    // }
     return new GraphQLObjectType(gqlObjDef);
   }
 
@@ -122,12 +139,16 @@ export class MlclGraphQL {
       Query: {},
     };
     for (const className of this.elems.getClasses()) {
-      res.Query[className] = async (root, { id }) => {
-        return (await this.elems.findById(id, this.elems.getInstance(className).collection));
+      res.Query[className] = async (root, {id}) => {
+        const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
+        const result = this.elems.toInstance(className, hit);
+        // await hit.populate();
+        // console.log({hit, className, result, id});
+        return result;
       };
       res.Query["every" + className] = async () => {
-        const elems = await this.elems.find({}, this.elems.getInstance(className).collection);
-        return elems;
+        const hits = await this.elems.find({}, this.elems.getInstance(className).collection);
+        return hits;
       };
     }
     return res;
@@ -146,7 +167,7 @@ export class MlclGraphQL {
   }
 
   public init(): any {
-    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers} );
+    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
     this.ownSchema = schema;
     return schema;
   }
