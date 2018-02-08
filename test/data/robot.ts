@@ -1,6 +1,6 @@
 "use strict";
 import { di, injectable } from "@molecuel/di";
-import { Collection, Element, ValidateType } from "@molecuel/elements";
+import { Collection, Element, IsReferenceTo, ValidateType } from "@molecuel/elements";
 import { Alloy } from "./alloy";
 
 @injectable
@@ -13,5 +13,6 @@ export class Robot extends Element {
   @ValidateType()
   public legs: number;
   @ValidateType(Alloy)
+  @IsReferenceTo(Alloy)
   public material: Alloy;
 }

@@ -27,9 +27,9 @@ export class MlclGraphQL {
   private ownResolvers: any = undefined;
   public get schema(): any { return this.ownSchema; }
   public set schema(newSchema: any) { if (!this.ownSchema) { this.ownSchema = newSchema; } }
-  public get typedefs(): any { return this.ownTypeDef; }
-  public set typedefs(newTypeDef: any) { this.ownTypeDef = newTypeDef; }
-  public get resolvers(): any { return this.ownTypeDef; }
+  public get typeDefs(): any { return this.ownTypeDef; }
+  public set typeDefs(newTypeDef: any) { this.ownTypeDef = newTypeDef; }
+  public get resolvers(): any { return this.ownResolvers; }
   public set resolvers(newResolvers: any) { this.ownResolvers = newResolvers; }
 
   constructor() {
@@ -118,14 +118,6 @@ export class MlclGraphQL {
       }
       gqlObjDef.fields[prop.property].type = gqlType;
     }
-    // } catch (error) {
-    //   console.log({error, definitions, name});
-    // }
-    // for (const prop in gqlObjDef) {
-    //   if (gqlObjDef[prop]) {
-    //     console.log(prop, gqlObjDef[prop]);
-    //   }
-    // }
     return new GraphQLObjectType(gqlObjDef);
   }
 
@@ -142,29 +134,37 @@ export class MlclGraphQL {
       res.Query[className] = async (root, {id}) => {
         const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
         const result = this.elems.toInstance(className, hit);
-        // await hit.populate();
-        // console.log({hit, className, result, id});
+        await result.populate();
         return result;
       };
       res.Query["every" + className] = async () => {
         const hits = await this.elems.find({}, this.elems.getInstance(className).collection);
-        return hits;
+        const result = hits.map(async (hit: object) => {
+          const instance = this.elems.toInstance(className, hit);
+          await instance.populate();
+          return instance;
+        });
+        return result;
       };
     }
     return res;
   }
 
-  public addResolver(name: string, resolverFunction: (...args: any[]) => any) {
+  public addResolver(name: string, returnType: any, resolverFunction: (...args: any[]) => any) {
     if (this.resolvers && this.resolvers.Query) {
       this.resolvers.Query[name] = resolverFunction;
     }
+    const typeName = Array.isArray(returnType) ? returnType[0].name : returnType.name || returnType.constructor.name;
+    const definitions = undefined; // this.elems.getMetadataTypesForElements();
+    const itemType = this.renderGqlItem(name, definitions);
+    // console.log(itemType);
   }
 
-  public setResolvers(resolvers: any) {
-    if (this.resolvers && this.resolvers.Query) {
-      this.resolvers.Query = resolvers;
-    }
-  }
+  // public setResolvers(resolvers: any) {
+  //   if (this.resolvers && this.resolvers.Query) {
+  //     this.resolvers.Query = resolvers;
+  //   }
+  // }
 
   public init(): any {
     const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
@@ -179,7 +179,7 @@ export class MlclGraphQL {
       const types: string = self.renderGraphQL();
       const resolvers: any = self.renderGenericResolvers();
       try {
-        self.typedefs = types;
+        self.typeDefs = types;
         self.resolvers = resolvers;
         const schema = makeExecutableSchema({ typeDefs: types, resolvers });
         self.schema = schema;

@@ -83,14 +83,20 @@ describe("graphql", () => {
       const testAlloy = elems.getInstance("Alloy");
       testAlloy.id = testAlloy.name = "Steel";
       testAlloy.mixture = ["Iron", "Carbon"];
+      const betaBot = elems.getInstance("Robot");
+      betaBot.id = betaBot.model = "BETA";
+      betaBot.arms = 1;
+      betaBot.legs = 3;
+      betaBot.material = testAlloy;
       const testBot = elems.getInstance("Robot");
-      testBot.id = testBot.model = "pr0707typ3";
+      testBot.id = testBot.model = "pr0707yp3";
       testBot.arms = testBot.legs = 2;
       testBot.material = testAlloy;
       try {
         const success = await elems.init();
         expect(success).to.equal(true);
         await testAlloy.save();
+        await betaBot.save();
         await testBot.save();
       } catch (error) {
         console.log(error);
@@ -106,17 +112,33 @@ describe("graphql", () => {
           pretty: true,
           schema: mlclGql.schema,
         })));
-      supertest(app.listen(/*3000, (err) => {
-        if (err) { return err; }
-      }*/))
-        .post("/graphql")
-        // .get("/graphql"
-        //   + "query: { Robot(id: pr0707yp3){ model, arms, legs, material } }",
-        // )
-        .send({ query: '{ Robot(id: "pr0707typ3"){ model, arms, legs, material { name, mixture } } }' })
+      supertest(app.listen())
+        // .post("/graphql")
+        // .send({ query: '{ Robot(id: "pr0707yp3"){ model, arms, legs, material { name, mixture } } }' })
+        .get("/graphql"
+          + '?query={Robot(id: "pr0707yp3"){id,model,arms,legs,material{id,name,mixture}}}',
+        )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
-          console.log({ err: err || res.body.errors, body: res.body, text: res.text });
+          // console.log({ err: err || res.body.errors, body: res.body, text: res.text });
+          const errors = err || res.body.errors;
+          should.not.exist(errors);
+          should.exist(res);
+          should.exist(res.body);
+          should.exist(res.body.data);
+          expect(res.body.data).to.be.an("object");
+          expect(res.body.data.Robot).to.be.an("object");
+          expect(res.body.data.Robot.id).to.equal("pr0707yp3");
+          expect(res.body.data.Robot.model).to.equal("pr0707yp3");
+          expect(res.body.data.Robot.arms).to.equal(2);
+          expect(res.body.data.Robot.legs).to.equal(2);
+          expect(res.body.data.Robot.material).to.be.an("object");
+          expect(res.body.data.Robot.material.id).to.equal("Steel");
+          expect(res.body.data.Robot.material.name).to.equal("Steel");
+          expect(res.body.data.Robot.material.mixture).to.be.instanceOf(Array);
+          expect(res.body.data.Robot.material.mixture).to.have.lengthOf(2);
+          expect(res.body.data.Robot.material.mixture).to.include("Iron");
+          expect(res.body.data.Robot.material.mixture).to.include("Carbon");
           done();
         });
     });
@@ -129,17 +151,104 @@ describe("graphql", () => {
           pretty: true,
           schema: mlclGql.schema,
         })));
-      supertest(app.listen(/*3000, (err) => {
-        if (err) { return err; }
-      }*/))
-        .post("/graphql")
-        // .get("/graphql"
-        //   + "query: { Robot { model, arms, legs, material } }",
-        // )
-        .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
+      supertest(app.listen())
+        // .post("/graphql")
+        // .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
+        .get("/graphql"
+          + "?query={everyRobot{id,model,arms,legs,material{id,name,mixture}}}",
+        )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
-          console.log(err || res.body.errors ? err || res.body.errors : res.body.data);
+          const errors = err || res.body.errors;
+          should.not.exist(errors);
+          should.exist(res);
+          should.exist(res.body);
+          should.exist(res.body.data);
+          expect(res.body.data).to.be.an("object");
+          expect(res.body.data.everyRobot).to.be.instanceOf(Array);
+          expect(res.body.data.everyRobot[0].id).to.equal("BETA");
+          expect(res.body.data.everyRobot[0].id).to.equal("BETA");
+          expect(res.body.data.everyRobot[0].arms).to.equal(1);
+          expect(res.body.data.everyRobot[0].legs).to.equal(3);
+          expect(res.body.data.everyRobot[1].id).to.equal("pr0707yp3");
+          expect(res.body.data.everyRobot[1].id).to.equal("pr0707yp3");
+          expect(res.body.data.everyRobot[1].arms).to.equal(2);
+          expect(res.body.data.everyRobot[1].legs).to.equal(2);
+          for (const robot of res.body.data.everyRobot) {
+            expect(robot.material).to.be.an("object");
+            expect(robot.material.id).to.equal("Steel");
+            expect(robot.material.name).to.equal("Steel");
+            expect(robot.material.mixture).to.be.instanceOf(Array);
+            expect(robot.material.mixture).to.have.lengthOf(2);
+            expect(robot.material.mixture).to.include("Iron");
+            expect(robot.material.mixture).to.include("Carbon");
+          }
+          done();
+        });
+    });
+    it("should add additional resolvers", () => {
+      try {
+        mlclGql.addResolver("allAlloys", [Alloy], async () => {
+          const hits = await this.elems.find({}, this.elems.getInstance("Alloy").collection);
+          const result = hits.map(async (hit: object) => {
+            const instance = this.elems.toInstance("Alloy", hit);
+            await instance.populate();
+            return instance;
+          });
+          return result;
+        });
+        should.exist(mlclGql.resolvers);
+        should.exist(mlclGql.resolvers.Query);
+        should.exist(mlclGql.resolvers.Query.allAlloys);
+      } catch (error) {
+        console.log(error);
+        should.not.exist(error);
+      }
+    });
+    it("should be able to re-initialize manually", () => {
+      try {
+        mlclGql.init();
+      } catch (error) {
+        should.not.exist(error);
+      }
+    });
+    it("should execute the new resolver / query endpoint", (done) => {
+      const app = express();
+      app.use(bodyParser.json())
+        .use(bodyParser.urlencoded({ extended: true }))
+        .use("/graphql", graphqlHTTP((req) => ({
+          graphiql: false,
+          pretty: true,
+          schema: mlclGql.schema,
+        })));
+      supertest(app.listen())
+        // .post("/graphql")
+        // .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
+        .get("/graphql"
+          + "?query={allAlloys{id,name,mixture}}",
+        )
+        .set("Accept", "application/json")
+        .end((err: any, res: supertest.Response) => {
+          const errors = err || res.body.errors;
+          if (errors) {
+            console.log(errors);
+          }
+          should.not.exist(errors);
+          should.exist(res);
+          should.exist(res.body);
+          should.exist(res.body.data);
+          expect(res.body.data).to.be.an("object");
+          expect(res.body.data.allAlloys).to.be.instanceOf(Array);
+          expect(res.body.data.allAlloys).to.have.lengthOf(1);
+          for (const alloy of res.body.data.allAlloys) {
+            expect(alloy.material).to.be.an("object");
+            expect(alloy.material.id).to.equal("Steel");
+            expect(alloy.material.name).to.equal("Steel");
+            expect(alloy.material.mixture).to.be.instanceOf(Array);
+            expect(alloy.material.mixture).to.have.lengthOf(2);
+            expect(alloy.material.mixture).to.include("Iron");
+            expect(alloy.material.mixture).to.include("Carbon");
+          }
           done();
         });
     });
