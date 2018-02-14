@@ -6,6 +6,7 @@ import { di, injectable, singleton } from "@molecuel/di";
 import { MlclElements } from "@molecuel/elements";
 import { Observable, Subject } from "@reactivex/rxjs";
 import {
+  buildSchema,
   GraphQLBoolean,
   GraphQLFloat,
   GraphQLID,
@@ -41,7 +42,125 @@ export class MlclGraphQL {
    *
    * @memberOf MlclGraphQL
    */
-  public renderGraphQL(): string {
+  public renderGraphQL(rootQuery?: object): string {
+    const queryGqlType = new GraphQLObjectType(rootQuery || this.renderRootQuery());
+
+    const schema = new GraphQLSchema({
+      query: queryGqlType,
+    });
+
+    return printSchema(schema);
+  }
+
+  /**
+   * Renders a Object type as graphql object type
+   *
+   * @param  {string} name              [The item name]
+   * @param {object} definitions        [The property definitions of the elements]
+   *
+   * @memberOf MlclGraphQL
+   */
+  public renderGqlItem(name: string, definitions: any) {
+    const gqlObjDef = {
+      fields: {},
+      name,
+    };
+    // try {
+    for (const prop of definitions[name]) {
+      gqlObjDef.fields[prop.property] = {};
+      gqlObjDef.fields[prop.property].type = this.getGqlType(prop, definitions);
+    }
+    return new GraphQLObjectType(gqlObjDef);
+  }
+
+  /**
+   * Returns generic resolvers for all registered Elements
+   *
+   * @memberOf MlclGraphQL
+   */
+  public renderGenericResolvers(): any {
+    const res: any = {
+      Query: {},
+    };
+    for (const className of this.elems.getClasses()) {
+      res.Query[className] = async (root, { id }) => {
+        const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
+        const result = this.elems.toInstance(className, hit);
+        await result.populate();
+        return result;
+      };
+      res.Query["every" + className] = async () => {
+        const hits = await this.elems.find({}, this.elems.getInstance(className).collection);
+        const result = hits.map(async (hit: object) => {
+          const instance = this.elems.toInstance(className, hit);
+          await instance.populate();
+          return instance;
+        });
+        return result;
+      };
+    }
+    return res;
+  }
+
+  /**
+   * Adds a given resolver to the current ones
+   *
+   * @param name The name of the resolver endpoint
+   * @param returnType The expected type of the response
+   * @param resolverFunction The resolver itself
+   */
+  public addResolver(
+    name: string,
+    returnType: any,
+    functionParameters: Map<string, any>,
+    resolverFunction: (...args: any[]) => any,
+  ) {
+
+    if (this.resolvers && this.resolvers.Query) {
+      this.resolvers.Query[name] = resolverFunction;
+    }
+    const typeName = Array.isArray(returnType)
+      ? returnType[0].name || returnType[0].constructor.name
+      : returnType.name || returnType.constructor.name;
+    const rootQuery: any = this.renderRootQuery();
+    rootQuery.fields[name] = {
+      type: this.getGqlType({
+        nested: Array.isArray(returnType),
+        type: typeName,
+      }, this.elems.getMetadataTypesForElements()),
+    };
+    if (functionParameters && functionParameters.size) {
+      const args = {};
+      for (const [key, value] of functionParameters) {
+        const argTypeName = Array.isArray(value)
+        ? value[0].name || value[0].constructor.name
+        : value.name || value.constructor.name;
+        args[key] = {
+          type: this.getGqlType({
+            nested: Array.isArray(value),
+            type: argTypeName,
+          }, this.elems.getMetadataTypesForElements()),
+        };
+      }
+      rootQuery.fields[name].args = args;
+    }
+    const newTypeDefs = this.renderGraphQL(rootQuery);
+    this.ownTypeDef = newTypeDefs;
+  }
+
+  // public setResolvers(resolvers: any) {
+  //   if (this.resolvers && this.resolvers.Query) {
+  //     this.resolvers.Query = resolvers;
+  //   }
+  // }
+
+  public init(): any {
+    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
+    this.ownSchema = schema;
+    return schema;
+  }
+
+  protected renderRootQuery(): object {
     const elemProperties = this.elems.getMetadataTypesForElements();
     const keys = Object.keys(elemProperties);
     for (const key of keys) {
@@ -67,109 +186,30 @@ export class MlclGraphQL {
         type: new GraphQLList(gqlElement),
       };
     }
-    // console.log(queryType);
-    const queryGqlType = new GraphQLObjectType(queryType);
-
-    const schema = new GraphQLSchema({
-      query: queryGqlType,
-    });
-
-    return printSchema(schema);
+    return queryType;
   }
 
-  /**
-   * Renders a Object type as graphql object type
-   *
-   * @param  {string} name              [The item name]
-   * @param {object} definitions        [The property definitions of the elements]
-   *
-   * @memberOf MlclGraphQL
-   */
-  public renderGqlItem(name: string, definitions: any) {
-    const gqlObjDef = {
-      fields: {},
-      name,
-    };
-    // try {
-    for (const prop of definitions[name]) {
-      let gqlType;
-      if (prop.type === "Number") {
-        gqlObjDef.fields[prop.property] = {};
-        gqlType = GraphQLFloat;
-      } else if (prop.type === "String") {
-        gqlObjDef.fields[prop.property] = {};
-        gqlType = GraphQLString;
-      } else if (prop.type === "Boolean") {
-        gqlObjDef.fields[prop.property] = {};
-        gqlType = GraphQLBoolean;
-      } else if (prop.type === "ID") {
-        gqlObjDef.fields[prop.property] = {};
-        gqlType = GraphQLID;
+  protected getGqlType(prop: { type: string, nested: boolean }, definitions: any) {
+    let gqlType;
+    if (prop.type === "Number") {
+      gqlType = GraphQLFloat;
+    } else if (prop.type === "String") {
+      gqlType = GraphQLString;
+    } else if (prop.type === "Boolean") {
+      gqlType = GraphQLBoolean;
+    } else if (prop.type === "ID") {
+      gqlType = GraphQLID;
+    } else {
+      if (this.gqlStore.get(prop.type)) {
+        gqlType = this.gqlStore.get(prop.type);
       } else {
-        gqlObjDef.fields[prop.property] = {};
-        if (this.gqlStore.get(prop.type)) {
-          gqlType = this.gqlStore.get(prop.type);
-        } else {
-          gqlType = this.renderGqlItem(prop.type, definitions);
-        }
+        gqlType = this.renderGqlItem(prop.type, definitions);
       }
-      if (prop.nested) {
-        gqlType = new GraphQLList(gqlType);
-      }
-      gqlObjDef.fields[prop.property].type = gqlType;
     }
-    return new GraphQLObjectType(gqlObjDef);
-  }
-
-  /**
-   * Returns generic resolvers for all registered Elements
-   *
-   * @memberOf MlclGraphQL
-   */
-  public renderGenericResolvers(): any {
-    const res: any = {
-      Query: {},
-    };
-    for (const className of this.elems.getClasses()) {
-      res.Query[className] = async (root, {id}) => {
-        const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
-        const result = this.elems.toInstance(className, hit);
-        await result.populate();
-        return result;
-      };
-      res.Query["every" + className] = async () => {
-        const hits = await this.elems.find({}, this.elems.getInstance(className).collection);
-        const result = hits.map(async (hit: object) => {
-          const instance = this.elems.toInstance(className, hit);
-          await instance.populate();
-          return instance;
-        });
-        return result;
-      };
+    if (prop.nested) {
+      gqlType = new GraphQLList(gqlType);
     }
-    return res;
-  }
-
-  public addResolver(name: string, returnType: any, resolverFunction: (...args: any[]) => any) {
-    if (this.resolvers && this.resolvers.Query) {
-      this.resolvers.Query[name] = resolverFunction;
-    }
-    const typeName = Array.isArray(returnType) ? returnType[0].name : returnType.name || returnType.constructor.name;
-    const definitions = undefined; // this.elems.getMetadataTypesForElements();
-    const itemType = this.renderGqlItem(name, definitions);
-    // console.log(itemType);
-  }
-
-  // public setResolvers(resolvers: any) {
-  //   if (this.resolvers && this.resolvers.Query) {
-  //     this.resolvers.Query = resolvers;
-  //   }
-  // }
-
-  public init(): any {
-    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
-    this.ownSchema = schema;
-    return schema;
+    return gqlType;
   }
 
   @init(55)

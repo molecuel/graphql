@@ -117,7 +117,7 @@ describe("graphql", () => {
         // .send({ query: '{ Robot(id: "pr0707yp3"){ model, arms, legs, material { name, mixture } } }' })
         .get("/graphql"
           + '?query={Robot(id: "pr0707yp3"){id,model,arms,legs,material{id,name,mixture}}}',
-        )
+      )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
           // console.log({ err: err || res.body.errors, body: res.body, text: res.text });
@@ -156,7 +156,7 @@ describe("graphql", () => {
         // .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
         .get("/graphql"
           + "?query={everyRobot{id,model,arms,legs,material{id,name,mixture}}}",
-        )
+      )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
           const errors = err || res.body.errors;
@@ -188,15 +188,22 @@ describe("graphql", () => {
     });
     it("should add additional resolvers", () => {
       try {
-        mlclGql.addResolver("allAlloys", [Alloy], async () => {
-          const hits = await this.elems.find({}, this.elems.getInstance("Alloy").collection);
-          const result = hits.map(async (hit: object) => {
-            const instance = this.elems.toInstance("Alloy", hit);
-            await instance.populate();
-            return instance;
-          });
-          return result;
-        });
+        mlclGql.addResolver(
+          "allAlloys",
+          [Alloy],
+          new Map<string, any>([["length", Number]]),
+          async (length: number) => {
+            const ctxElements = di.getInstance("MlclElements");
+            let hits: any[] = await ctxElements.find({}, ctxElements.getInstance("Alloy").collection);
+            hits = length ? hits.slice(0, length) : hits;
+            const result = hits.map(async (hit: object) => {
+              const instance = ctxElements.toInstance("Alloy", hit);
+              await instance.populate();
+              return instance;
+            });
+            return result;
+          },
+        );
         should.exist(mlclGql.resolvers);
         should.exist(mlclGql.resolvers.Query);
         should.exist(mlclGql.resolvers.Query.allAlloys);
@@ -226,7 +233,7 @@ describe("graphql", () => {
         // .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
         .get("/graphql"
           + "?query={allAlloys{id,name,mixture}}",
-        )
+      )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
           const errors = err || res.body.errors;
@@ -241,13 +248,13 @@ describe("graphql", () => {
           expect(res.body.data.allAlloys).to.be.instanceOf(Array);
           expect(res.body.data.allAlloys).to.have.lengthOf(1);
           for (const alloy of res.body.data.allAlloys) {
-            expect(alloy.material).to.be.an("object");
-            expect(alloy.material.id).to.equal("Steel");
-            expect(alloy.material.name).to.equal("Steel");
-            expect(alloy.material.mixture).to.be.instanceOf(Array);
-            expect(alloy.material.mixture).to.have.lengthOf(2);
-            expect(alloy.material.mixture).to.include("Iron");
-            expect(alloy.material.mixture).to.include("Carbon");
+            expect(alloy).to.be.an("object");
+            expect(alloy.id).to.equal("Steel");
+            expect(alloy.name).to.equal("Steel");
+            expect(alloy.mixture).to.be.instanceOf(Array);
+            expect(alloy.mixture).to.have.lengthOf(2);
+            expect(alloy.mixture).to.include("Iron");
+            expect(alloy.mixture).to.include("Carbon");
           }
           done();
         });
