@@ -17,6 +17,7 @@ import {
   GraphQLString,
   printSchema,
 } from "graphql";
+import { GraphQLDateTime } from "graphql-iso-date";
 import { makeExecutableSchema } from "graphql-tools";
 
 @singleton
@@ -43,13 +44,17 @@ export class MlclGraphQL {
    * @memberOf MlclGraphQL
    */
   public renderGraphQL(rootQuery?: object): string {
-    const queryGqlType = new GraphQLObjectType(rootQuery || this.renderRootQuery());
+    const queryObj = rootQuery || this.renderRootQuery()
+    if (queryObj) {
+      const queryGqlType = new GraphQLObjectType(queryObj);
+      const schema = new GraphQLSchema({
+        query: queryGqlType,
+      });
 
-    const schema = new GraphQLSchema({
-      query: queryGqlType,
-    });
-
-    return printSchema(schema);
+      return printSchema(schema);
+    } else {
+      return undefined;
+    }
   }
 
   /**
@@ -66,11 +71,18 @@ export class MlclGraphQL {
       name,
     };
     // try {
-    for (const prop of definitions[name]) {
-      gqlObjDef.fields[prop.property] = {};
-      gqlObjDef.fields[prop.property].type = this.getGqlType(prop, definitions);
+    if (definitions[name] && definitions[name][Symbol.iterator]) {
+      for (const prop of definitions[name]) {
+        gqlObjDef.fields[prop.property] = {};
+        gqlObjDef.fields[prop.property].type = this.getGqlType(prop, definitions);
+      }
+      return new GraphQLObjectType(gqlObjDef);
+    } else {
+      return undefined;
     }
-    return new GraphQLObjectType(gqlObjDef);
+    // } catch (e) {
+    //   console.log({e, name});
+    // }
   }
 
   /**
@@ -99,7 +111,7 @@ export class MlclGraphQL {
         return result;
       };
     }
-    return res;
+    return Object.keys(res.Query).length ? res : undefined;
   }
 
   /**
@@ -133,8 +145,8 @@ export class MlclGraphQL {
       const args = {};
       for (const [key, value] of functionParameters) {
         const argTypeName = Array.isArray(value)
-        ? value[0].name || value[0].constructor.name
-        : value.name || value.constructor.name;
+          ? value[0].name || value[0].constructor.name
+          : value.name || value.constructor.name;
         args[key] = {
           type: this.getGqlType({
             nested: Array.isArray(value),
@@ -155,6 +167,12 @@ export class MlclGraphQL {
   // }
 
   public init(): any {
+    if (!this.typeDefs) {
+      this.typeDefs = this.renderGraphQL();
+    }
+    if (!this.resolvers) {
+      this.resolvers = this.renderGenericResolvers();
+    }
     const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
     this.ownSchema = schema;
     return schema;
@@ -163,30 +181,36 @@ export class MlclGraphQL {
   protected renderRootQuery(): object {
     const elemProperties = this.elems.getMetadataTypesForElements();
     const keys = Object.keys(elemProperties);
-    for (const key of keys) {
-      const item = this.renderGqlItem(key, elemProperties);
-      this.gqlStore.set(key, item);
-    }
-    const queryType = {
-      description: "The root query type.",
-      fields: {},
-      name: "Query",
-    };
+    if (!keys || !keys.length) {
+      return undefined;
+    } else {
+      for (const key of keys) {
+        const item = this.renderGqlItem(key, elemProperties);
+        if (item) {
+          this.gqlStore.set(key, item);
+        }
+      }
+      const queryType = {
+        description: "The root query type.",
+        fields: {},
+        name: "Query",
+      };
 
-    for (const [key, gqlElement] of this.gqlStore) {
-      queryType.fields[key] = {
-        args: {
-          id: {
-            type: GraphQLID,
+      for (const [key, gqlElement] of this.gqlStore) {
+        queryType.fields[key] = {
+          args: {
+            id: {
+              type: GraphQLID,
+            },
           },
-        },
-        type: gqlElement,
-      };
-      queryType.fields["every" + key] = {
-        type: new GraphQLList(gqlElement),
-      };
+          type: gqlElement,
+        };
+        queryType.fields["every" + key] = {
+          type: new GraphQLList(gqlElement),
+        };
+      }
+      return queryType;
     }
-    return queryType;
   }
 
   protected getGqlType(prop: { type: string, nested: boolean }, definitions: any) {
@@ -199,6 +223,8 @@ export class MlclGraphQL {
       gqlType = GraphQLBoolean;
     } else if (prop.type === "ID") {
       gqlType = GraphQLID;
+    } else if (prop.type === "Date") {
+      gqlType = GraphQLDateTime;
     } else {
       if (this.gqlStore.get(prop.type)) {
         gqlType = this.gqlStore.get(prop.type);

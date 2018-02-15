@@ -25,30 +25,6 @@ import { Alloy, Robot } from "./data";
 describe("graphql", () => {
   let coreInitSuccess: boolean = false;
   describe("schemas", () => {
-    // const mockResolvers = {
-    //   Query: () => ({
-    //     Alloy: () => ({
-    //       mixture: () => {
-    //         const entryCount = Math.ceil(Math.random() * Math.pow(10, Math.random() * 3));
-    //         const mix = [];
-    //         for (let i = 0; i <= entryCount; i++) {
-    //           const state = casual.state;
-    //           mix.push(state);
-    //         }
-    //         return mix;
-    //       },
-    //       name: () => casual.last_name,
-    //     }),
-    //     Robot: (root, args) => {
-    //       return { model: args.model };
-    //     },
-    //   }),
-    //   Robot: () => ({
-    //     arms: () => Math.ceil(Math.random() * 10),
-    //     legs: () => Math.ceil(Math.random() * 10),
-    //     model: () => casual.state_abbr + casual.longitude + casual.country_code + casual.latitude,
-    //   }),
-    // };
     const mlclGql: MlclGraphQL = di.getInstance("MlclGraphQL");
     const elems = di.getInstance("MlclElements");
     it("should init core", async () => {
