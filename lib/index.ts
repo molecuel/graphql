@@ -19,16 +19,17 @@ import {
 } from "graphql";
 import { GraphQLDateTime } from "graphql-iso-date";
 import { makeExecutableSchema } from "graphql-tools";
+import { GraphQLRequest } from "apollo-link";
 
 @singleton
 export class MlclGraphQL {
   protected elems: MlclElements = di.getInstance("MlclElements");
   protected gqlStore: Map<string, any> = new Map();
-  private ownSchema: any = undefined;
+  private ownSchema: GraphQLSchema = undefined;
   private ownTypeDef: string = undefined;
   private ownResolvers: any = undefined;
-  public get schema(): any { return this.ownSchema; }
-  public set schema(newSchema: any) { if (!this.ownSchema) { this.ownSchema = newSchema; } }
+  public get schema(): GraphQLSchema { return this.ownSchema; }
+  public set schema(newSchema: GraphQLSchema) { /*if (!this.ownSchema) {*/ this.ownSchema = newSchema; /*}*/ }
   public get typeDefs(): any { return this.ownTypeDef; }
   public set typeDefs(newTypeDef: any) { this.ownTypeDef = newTypeDef; }
   public get resolvers(): any { return this.ownResolvers; }
@@ -166,14 +167,14 @@ export class MlclGraphQL {
   //   }
   // }
 
-  public init(): any {
+  public init(): GraphQLSchema {
     if (!this.typeDefs) {
       this.typeDefs = this.renderGraphQL();
     }
     if (!this.resolvers) {
       this.resolvers = this.renderGenericResolvers();
     }
-    const schema = makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers });
+    const schema: GraphQLSchema = (makeExecutableSchema({ typeDefs: this.ownTypeDef, resolvers: this.ownResolvers }) as GraphQLSchema);
     this.ownSchema = schema;
     return schema;
   }
@@ -247,7 +248,7 @@ export class MlclGraphQL {
       try {
         self.typeDefs = types;
         self.resolvers = resolvers;
-        const schema = makeExecutableSchema({ typeDefs: types, resolvers });
+        const schema: GraphQLSchema = (makeExecutableSchema({ typeDefs: types, resolvers }) as GraphQLSchema);
         self.schema = schema;
       } catch (error) {
         // todo: react to error
