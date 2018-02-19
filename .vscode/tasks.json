@@ -7,7 +7,7 @@
             "taskName": "build",
             "command": "tsc",
             "isShellCommand": true,
-            "args": ["-w", "-p", "."],
+            "args": ["-w", "-p", ".", "--lib", "es6,dom,esnext,esnext.asynciterable"],
             "isBackground": true,
             "problemMatcher": "$tsc-watch",
             "isBuildCommand": true

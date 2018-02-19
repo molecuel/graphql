@@ -22,6 +22,7 @@ import { makeExecutableSchema } from "graphql-tools";
 import { GraphQLRequest } from "apollo-link";
 
 @singleton
+@injectable
 export class MlclGraphQL {
   protected elems: MlclElements = di.getInstance("MlclElements");
   protected gqlStore: Map<string, any> = new Map();
@@ -35,8 +36,11 @@ export class MlclGraphQL {
   public get resolvers(): any { return this.ownResolvers; }
   public set resolvers(newResolvers: any) { this.ownResolvers = newResolvers; }
 
-  constructor() {
+  constructor(elements?: MlclElements) {
     di.bootstrap(MlclCore, MlclElements);
+    if (elements) {
+      this.elems = elements;
+    }
   }
 
   /**
