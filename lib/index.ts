@@ -20,6 +20,8 @@ import {
 import { GraphQLDateTime } from "graphql-iso-date";
 import { makeExecutableSchema } from "graphql-tools";
 import { GraphQLRequest } from "apollo-link";
+import { Vertex } from "./classes/vertex";
+export { Vertex } from "./classes/vertex";
 
 @singleton
 @injectable
@@ -90,6 +92,16 @@ export class MlclGraphQL {
     // }
   }
 
+  public getClasses(): string[] {
+    const result: string[] = [];
+    for (const [name, injTemplate] of di.injectables) {
+      if (injTemplate.injectable && new injTemplate.injectable() instanceof Vertex && name !== Vertex.name) {
+        result.push(name);
+      }
+    }
+    return result;
+  }
+
   /**
    * Returns generic resolvers for all registered Elements
    *
@@ -99,7 +111,8 @@ export class MlclGraphQL {
     const res: any = {
       Query: {},
     };
-    for (const className of this.elems.getClasses()) {
+    const classes = [].concat(this.getClasses(), this.elems.getClasses());
+    for (const className of classes) {
       res.Query[className] = async (root, { id }) => {
         const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
         const result = this.elems.toInstance(className, hit);
@@ -184,13 +197,17 @@ export class MlclGraphQL {
   }
 
   protected renderRootQuery(): object {
-    const elemProperties = this.elems.getMetadataTypesForElements();
-    const keys = Object.keys(elemProperties);
+    const classes: string[] = [].concat(this.getClasses(), this.elems.getClasses());
+    const properties = {}; // this.elems.getMetadataTypesForElements();
+    for (const className of classes) {
+      properties[className] = this.elems.getMetadataTypesForClass(className);
+    }
+    const keys = Object.keys(properties);
     if (!keys || !keys.length) {
       return undefined;
     } else {
       for (const key of keys) {
-        const item = this.renderGqlItem(key, elemProperties);
+        const item = this.renderGqlItem(key, properties);
         if (item) {
           this.gqlStore.set(key, item);
         }
