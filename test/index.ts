@@ -251,7 +251,7 @@ describe("graphql", () => {
       if (dbHandler && dbHandler.connections) {
         for (const con of dbHandler.connections) {
           try {
-            // await con.database.dropDatabase();
+            await con.database.dropDatabase();
           } catch (error) {
             should.not.exist(error);
           }
