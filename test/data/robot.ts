@@ -2,6 +2,7 @@
 import { di, injectable } from "@molecuel/di";
 import { Collection, Element, IsReferenceTo, ValidateType } from "@molecuel/elements";
 import { Alloy } from "./alloy";
+import { Firmware } from "./firmware";
 
 @injectable
 @Collection("robots")
@@ -15,4 +16,6 @@ export class Robot extends Element {
   @ValidateType(Alloy)
   @IsReferenceTo(Alloy)
   public material: Alloy;
+  @ValidateType(Firmware)
+  public firmware: Firmware;
 }

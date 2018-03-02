@@ -14,6 +14,7 @@ import {
   GraphQLList,
   GraphQLObjectType,
   GraphQLSchema,
+  GraphQLScalarType,
   GraphQLString,
   printSchema,
 } from "graphql";
@@ -21,7 +22,6 @@ import { GraphQLDateTime } from "graphql-iso-date";
 import { makeExecutableSchema } from "graphql-tools";
 import { GraphQLRequest } from "apollo-link";
 import { Vertex } from "./classes/vertex";
-export { Vertex } from "./classes/vertex";
 
 @singleton
 @injectable
@@ -93,10 +93,11 @@ export class MlclGraphQL {
   }
 
   public getClasses(): string[] {
-    const result: string[] = [];
+    let result: string[] = [];
     for (const [name, injTemplate] of di.injectables) {
-      if (injTemplate.injectable && new injTemplate.injectable() instanceof Vertex && name !== Vertex.name) {
-        result.push(name);
+      if (injTemplate.injectable
+        && (new injTemplate.injectable() instanceof Vertex && name !== Vertex.name)) {
+        result = result.concat(name);
       }
     }
     return result;
@@ -111,7 +112,7 @@ export class MlclGraphQL {
     const res: any = {
       Query: {},
     };
-    const classes = [].concat(this.getClasses(), this.elems.getClasses());
+    const classes = [].concat(/*this.getClasses(), */this.elems.getClasses());
     for (const className of classes) {
       res.Query[className] = async (root, { id }) => {
         const hit = await this.elems.findById(id, this.elems.getInstance(className).collection);
@@ -197,10 +198,15 @@ export class MlclGraphQL {
   }
 
   protected renderRootQuery(): object {
-    const classes: string[] = [].concat(this.getClasses(), this.elems.getClasses());
-    const properties = {}; // this.elems.getMetadataTypesForElements();
+    const elementClasses: string[] = this.elems.getClasses();
+    const classes: string[] = [].concat(this.getClasses(), elementClasses);
+    const properties = {};
+    const queryProperties = {};
     for (const className of classes) {
       properties[className] = this.elems.getMetadataTypesForClass(className);
+    }
+    for (const className of elementClasses) {
+      queryProperties[className] = this.elems.getMetadataTypesForClass(className);
     }
     const keys = Object.keys(properties);
     if (!keys || !keys.length) {
@@ -212,6 +218,7 @@ export class MlclGraphQL {
           this.gqlStore.set(key, item);
         }
       }
+
       const queryType = {
         description: "The root query type.",
         fields: {},
@@ -219,17 +226,19 @@ export class MlclGraphQL {
       };
 
       for (const [key, gqlElement] of this.gqlStore) {
-        queryType.fields[key] = {
-          args: {
-            id: {
-              type: GraphQLID,
+        if (queryProperties[key]) {
+          queryType.fields[key] = {
+            args: {
+              id: {
+                type: GraphQLID,
+              },
             },
-          },
-          type: gqlElement,
-        };
-        queryType.fields["every" + key] = {
-          type: new GraphQLList(gqlElement),
-        };
+            type: gqlElement,
+          };
+          queryType.fields["every" + key] = {
+            type: new GraphQLList(gqlElement),
+          };
+        }
       }
       return queryType;
     }
@@ -279,3 +288,5 @@ export class MlclGraphQL {
     });
   }
 }
+
+export { Vertex } from "./classes/vertex";

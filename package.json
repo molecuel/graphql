@@ -1,7 +1,7 @@
 {
   "name": "@molecuel/graphql",
   "main": "lib/index.js",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "scripts": {
     "start": "node lib/index.js",
     "tslint": "./node_modules/.bin/tslint --project tsconfig.json",

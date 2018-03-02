@@ -19,7 +19,7 @@ import { MlclMongoDb } from "@molecuel/mongodb";
 import { MlclGraphQL } from "../lib";
 
 // import * as casual from "casual";
-import { Alloy, Robot } from "./data";
+import { Alloy, Robot, Firmware } from "./data";
 
 // tslint:disable:no-console
 describe("graphql", () => {
@@ -59,15 +59,20 @@ describe("graphql", () => {
       const testAlloy = elems.getInstance("Alloy");
       testAlloy.id = testAlloy.name = "Steel";
       testAlloy.mixture = ["Iron", "Carbon"];
+      const testFirmware: Firmware = di.getInstance("Firmware");
+      testFirmware.name = "FAS Chariot";
+      testFirmware.version = "3.6";
       const betaBot = elems.getInstance("Robot");
       betaBot.id = betaBot.model = "BETA";
       betaBot.arms = 1;
       betaBot.legs = 3;
       betaBot.material = testAlloy;
+      betaBot.firmware = testFirmware;
       const testBot = elems.getInstance("Robot");
       testBot.id = testBot.model = "pr0707yp3";
       testBot.arms = testBot.legs = 2;
       testBot.material = testAlloy;
+      testBot.firmware = testFirmware;
       try {
         const success = await elems.init();
         expect(success).to.equal(true);
@@ -92,7 +97,7 @@ describe("graphql", () => {
         // .post("/graphql")
         // .send({ query: '{ Robot(id: "pr0707yp3"){ model, arms, legs, material { name, mixture } } }' })
         .get("/graphql"
-          + '?query={Robot(id: "pr0707yp3"){id,model,arms,legs,material{id,name,mixture}}}',
+          + '?query={Robot(id: "pr0707yp3"){id,model,arms,legs,material{id,name,mixture},firmware{name,version}}}',
       )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
@@ -115,6 +120,9 @@ describe("graphql", () => {
           expect(res.body.data.Robot.material.mixture).to.have.lengthOf(2);
           expect(res.body.data.Robot.material.mixture).to.include("Iron");
           expect(res.body.data.Robot.material.mixture).to.include("Carbon");
+          expect(res.body.data.Robot.firmware).to.be.an("object");
+          expect(res.body.data.Robot.firmware.name).to.equal("FAS Chariot");
+          expect(res.body.data.Robot.firmware.version).to.equal("3.6");
           done();
         });
     });
@@ -131,7 +139,7 @@ describe("graphql", () => {
         // .post("/graphql")
         // .send({ query: "{ everyRobot { model, arms, legs, material { name, mixture } } }" })
         .get("/graphql"
-          + "?query={everyRobot{id,model,arms,legs,material{id,name,mixture}}}",
+          + "?query={everyRobot{id,model,arms,legs,material{id,name,mixture},firmware{name,version}}}",
       )
         .set("Accept", "application/json")
         .end((err: any, res: supertest.Response) => {
@@ -158,6 +166,9 @@ describe("graphql", () => {
             expect(robot.material.mixture).to.have.lengthOf(2);
             expect(robot.material.mixture).to.include("Iron");
             expect(robot.material.mixture).to.include("Carbon");
+            expect(robot.firmware).to.be.an("object");
+            expect(robot.firmware.name).to.equal("FAS Chariot");
+            expect(robot.firmware.version).to.equal("3.6");
           }
           done();
         });
@@ -240,7 +251,7 @@ describe("graphql", () => {
       if (dbHandler && dbHandler.connections) {
         for (const con of dbHandler.connections) {
           try {
-            await con.database.dropDatabase();
+            // await con.database.dropDatabase();
           } catch (error) {
             should.not.exist(error);
           }
