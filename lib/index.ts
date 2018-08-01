@@ -269,24 +269,25 @@ export class MlclGraphQL {
     return gqlType;
   }
 
-  @init(55)
-  protected autoInit() {
-    return Observable.create((o) => {
-      const self = di.getInstance("MlclGraphQL");
-      const types: string = self.renderGraphQL();
-      const resolvers: any = self.renderGenericResolvers();
-      try {
-        self.typeDefs = types;
-        self.resolvers = resolvers;
-        const schema: GraphQLSchema = (makeExecutableSchema({ typeDefs: types, resolvers }) as GraphQLSchema);
-        self.schema = schema;
-      } catch (error) {
-        // todo: react to error
-      }
-      o.next(o);
-      o.complete();
-    });
-  }
+  // @init(55)
+  // protected autoInit() {
+  //   return Observable.create((o) => {
+  //     const self = di.getInstance("MlclGraphQL");
+  //     const types: string = self.renderGraphQL();
+  //     const resolvers: any = self.renderGenericResolvers();
+  //     try {
+  //       self.typeDefs = types;
+  //       self.resolvers = resolvers;
+  //       const schema: GraphQLSchema = (makeExecutableSchema({ typeDefs: types, resolvers }) as GraphQLSchema);
+  //       self.schema = schema;
+  //     } catch (error) {
+  //       console.log(error);
+  //       // todo: react to error
+  //     }
+  //     o.next(o);
+  //     o.complete();
+  //   });
+  // }
 }
 
 export { Vertex } from "./classes/vertex";
